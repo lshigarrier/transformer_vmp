@@ -1,0 +1,6 @@
+.idea/
+**/__pycache__/
+archives/
+data/
+models/
+outputs/images/
