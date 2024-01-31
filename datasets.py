@@ -27,13 +27,16 @@ def load_pems(dataset='TRAIN'):
     # y must be squeezed for proper functioning of one_hot
     # Remove 1 to have range [0, 6]
     y = y.squeeze() - 1
+    # Normalization
+    x_min = x.min()
+    x = (x - x_min)/(x.max() - x_min)
     return torch.Tensor(x).transpose(dim0=1, dim1=2), torch.Tensor(y).long()
 
 
 def main():
-    x, y = load_pems()
-    print(x[0])
-    print(y[:100])
+    x, y = load_pems(dataset='TEST')
+    print(x[0, 0])
+    print(y[:50])
     print(x.shape)
     print(y.shape)
 

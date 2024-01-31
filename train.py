@@ -104,7 +104,7 @@ def validate(param, device, testloader, model, epoch):
         if param['wandb']:
             wandb.log({'test_accuracy': acc})
         test_loss = tot_loss/len(testloader)
-        print(f'Epoch {epoch}, Test loss: {test_loss:.2g}, Test Accuracy: {acc:.2f}%')
+        print(f'Epoch {epoch}, Test loss: {test_loss:.3g}, Test Accuracy: {acc:.2f}%')
 
     return test_loss
 

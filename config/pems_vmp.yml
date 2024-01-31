@@ -11,26 +11,28 @@ wandb : True
 
 # nb of multi-head (n), nb of heads per multi-head (h)
 dim : [6, 9]
-# embedding dimensions, we must have emb[-1]%h = 0
-emb : [63,]
+# use embedding layers
+embed : False
+# embedding dimensions, if embed: we must have emb[-1]%h = 0, else: we must have input_dim%h=0
+emb : ~
 # classifiers dimensions, we must have emb[-1] = clas[0]
-clas : [63,]
-# Residual connection mode for variance computation : identity, independence, taylor
-residual : independence
+clas : [963,]
 # use uncertainty quantification
 vmp : True
+# residual connection mode for variance computation : identity, independence, taylor
+residual : independence
 
 # training
 
-epochs : 5
-batch_size : 64
+epochs : 10
+batch_size : 32
 optimizer : adam
-learning_rate : 1.e-2
+learning_rate : 1.e-3
+# End factor to multiply the learning rate at the last epoch
+end_factor : 1.e-1
+l2_reg : 0.
 # l2 regularization hyperparameter in ELBO
 kl_factor : 1.e-8
-# End factor to multiply the learning rate at the last epoch
-end_factor : 1.e-3
-l2_reg : 0.
 # gradient clipping
 clip : 10
 # nb of workers for dataloaders

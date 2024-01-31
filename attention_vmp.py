@@ -108,25 +108,31 @@ class EncoderVMP(nn.Module):
         """
         n: nb of Multi Head Attention
         h: nb of heads per Multi Head
+        k: embedding dimension
         """
         super().__init__()
         n, h = param['dim']
-        emb_dim = param['emb']
-        k = emb_dim[-1]
         self.n = n
-        self.nb_emb = len(emb_dim)
         self.mode = param['residual']
         self.tol = param['tol']
         self.encode = encode
+        self.embed = param['embed']
+        # Use embedding layers or not
+        if self.embed:
+            emb_dim = param['emb']
+            k = emb_dim[-1]
+            self.nb_emb = len(emb_dim)
+            self.emb = nn.ModuleList()
+            self.emb.append(LinearVMP(param['input_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
+            for i in range(len(emb_dim) - 1):
+                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i + 1], var_init=param['var_init'], tol=self.tol))
+        else:
+            k = param['input_dim']
         self.pos = get_positional_encoding(k, param['t_in'], device)
-        self.emb = nn.ModuleList()
         self.multi = nn.ModuleList()
         self.fc = nn.ModuleList()
         self.norm1 = nn.ModuleList()
         self.norm2 = nn.ModuleList()
-        self.emb.append(LinearVMP(param['input_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
-        for i in range(len(emb_dim)-1):
-            self.emb.append(LinearVMP(emb_dim[i], emb_dim[i+1], var_init=param['var_init'], tol=self.tol))
         for i in range(n-1):
             if i != 0:
                 self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
@@ -143,9 +149,10 @@ class EncoderVMP(nn.Module):
 
     def forward(self, x):
         var_x = torch.zeros_like(x)
-        for i in range(self.nb_emb-1):
-            x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
-        x, var_x = self.emb[-1](x, var_x)
+        if self.embed:
+            for i in range(self.nb_emb-1):
+                x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
+            x, var_x = self.emb[-1](x, var_x)
         x = x + self.pos
         for i in range(self.n-1):
             # LayerNorms are before the layers
@@ -158,12 +165,7 @@ class EncoderVMP(nn.Module):
             x, var_x = relu_vmp(*self.fc[i](x, var_x), tol=self.tol)
             x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
         x, var_x = self.norm1[self.n-2](x, var_x)
-        if self.encode:
-            k, var_k, v, var_v = self.multi[self.n-1](x, var_x)
-            return k, var_k, v, var_v
-        else:
-            x, var_x = self.multi[self.n-1](x, var_x)
-            return x, var_x
+        return self.multi[self.n-1](x, var_x)
 
 
 class DecoderVMP(nn.Module):
@@ -171,27 +173,33 @@ class DecoderVMP(nn.Module):
         """
         n: nb of Multi Head Attention
         h: nb of heads per Multi Head
+        k: embedding dimension
         """
         super().__init__()
         n, h = param['dim']
-        emb_dim = param['emb']
-        k = emb_dim[-1]
         self.n = n
-        self.nb_emb = len(emb_dim)
         self.device = device
         self.mode = param['residual']
         self.tol = param['tol']
+        self.embed = param['embed']
+        # Use embedding layers or not
+        if self.embed:
+            emb_dim = param['emb']
+            k = emb_dim[-1]
+            self.nb_emb = len(emb_dim)
+            self.emb = nn.ModuleList()
+            self.emb.append(LinearVMP(param['output_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
+            for i in range(len(emb_dim) - 1):
+                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i + 1], var_init=param['var_init'], tol=self.tol))
+        else:
+            k = param['output_dim']
         self.pos = get_positional_encoding(k, param['t_out']+1, device)
-        self.emb = nn.ModuleList()
         self.multi1 = nn.ModuleList()
         self.multi2 = nn.ModuleList()
         self.fc = nn.ModuleList()
         self.norm1 = nn.ModuleList()
         self.norm2 = nn.ModuleList()
         self.norm3 = nn.ModuleList()
-        self.emb.append(LinearVMP(param['output_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
-        for i in range(len(emb_dim)-1):
-            self.emb.append(LinearVMP(emb_dim[i], emb_dim[i+1], var_init=param['var_init'], tol=self.tol))
         for i in range(n):
             if i != 0:
                 self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
@@ -200,13 +208,15 @@ class DecoderVMP(nn.Module):
             self.multi2.append(DecoderHeadVMP(h, k, device, self.mode, param['var_init'], self.tol))
             self.norm3.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
             self.fc.append(LinearVMP(k, k, var_init=param['var_init'], tol=self.tol))
-        self.fc.append(LinearVMP(k, param['output_dim'], var_init=param['var_init'], tol=self.tol))
+        if self.embed:
+            self.fc.append(LinearVMP(k, param['output_dim'], var_init=param['var_init'], tol=self.tol))
 
     def forward(self, x, k, var_k, v, var_v):
         var_x = torch.zeros_like(x)
-        for i in range(self.nb_emb-1):
-            x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
-        x, var_x = self.emb[-1](x, var_x)
+        if self.embed:
+            for i in range(self.nb_emb-1):
+                x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
+            x, var_x = self.emb[-1](x, var_x)
         x = x + self.pos
         for i in range(self.n):
             # LayerNorms are before the layers
@@ -220,7 +230,9 @@ class DecoderVMP(nn.Module):
             x0, var_x0 = x[:], var_x[:]
             x, var_x = relu_vmp(*self.fc[i](x, var_x), return_jac=True, tol=self.tol)
             x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
-        return sigmoid_vmp(*self.fc[-1](x, var_x), tol=self.tol)
+            if self.embed:
+                x, var_x = self.fc[-1](x, var_x)
+        return sigmoid_vmp(x, var_x, tol=self.tol)
 
 
 class TransformerVMP(nn.Module):

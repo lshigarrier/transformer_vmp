@@ -59,6 +59,8 @@ def initialize(param):
             model = TransformerClassifier(param, device)
     else:
         raise NotImplementedError
+    nb_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Trainable parameters: {nb_param}')
 
     # Load model
     if param['load']:
