@@ -4,3 +4,4 @@ archives/
 data/
 models/
 outputs/images/
+wandb/

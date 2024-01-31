@@ -8,12 +8,12 @@ from utils import load_yaml, initialize
 from vmp import loss_vmp
 
 
-def compute_metrics(param, epoch, idx, trainloader, model, target, prob):
+def compute_metrics(param, epoch, idx, trainloader, model, target, logit):
     # Compute average gradient norm
     grad_sum = 0
     grad_tot = 0
     for name, p in model.named_parameters():
-        if p.require_grad:
+        if p.requires_grad:
             grad_tot += 1
             grad_sum += p.grad.norm().item()
     if param['wandb']:
@@ -22,7 +22,7 @@ def compute_metrics(param, epoch, idx, trainloader, model, target, prob):
     # Compute training set accuracy
     if param['dataset'] == 'pems':
         # Compute predictions
-        pred = prob.argmax(dim=-1)
+        pred = logit.argmax(dim=-1)
 
         # Compute the nb of correct and total examples
         train_corr = torch.eq(pred, target).int().sum().item()
@@ -30,6 +30,7 @@ def compute_metrics(param, epoch, idx, trainloader, model, target, prob):
 
         if param['wandb']:
             onehot = nn.functional.one_hot(target, num_classes=param['output_dim'])
+            prob = nn.functional.softmax(logit, dim=-1)
             wandb.log({'train_RMSE': math.sqrt(((onehot - prob)**2).mean().item())})
     else:
         raise NotImplementedError
@@ -62,23 +63,23 @@ def validate(param, device, testloader, model, epoch):
             if param['vmp']:
                 # Forward pass
                 if param['dataset'] == 'pems':
-                    prob, var_prob = model(x)
+                    logit, var_logit = model(x)
                 else:
                     raise NotImplementedError
 
                 # Compute the ELBO
-                nll, kl = loss_vmp(prob, var_prob, y, model, param)
+                nll, kl = loss_vmp(logit, var_logit, y, model, param)
                 loss = nll + param['kl_factor'] * kl
 
                 if param['wandb']:
-                    wandb.log({'test_nll': nll.item(), 'test_kl': kl.item(), 'test_var': var_prob.mean().item()})
+                    wandb.log({'test_nll': nll.item(), 'test_kl': kl.item(), 'test_var': var_logit.mean().item()})
 
             else:
                 # Forward pass
                 if param['dataset'] == 'pems':
-                    prob = model(x)
+                    logit = model(x)
                     # Compute the loss
-                    loss = nn.functional.cross_entropy(x, y)
+                    loss = nn.functional.cross_entropy(logit, y)
                 else:
                     raise NotImplementedError
 
@@ -88,11 +89,12 @@ def validate(param, device, testloader, model, epoch):
 
             # Compute validation metrics
             if param['dataset'] == 'pems':
-                pred = prob.argmax(dim=-1)
+                pred = logit.argmax(dim=-1)
                 tot_corr += torch.eq(pred, y).int().sum().item()
                 tot_num += y.numel()
                 if param['wandb']:
                     onehot = nn.functional.one_hot(y, num_classes=param['output_dim'])
+                    prob = nn.functional.softmax(logit, dim=-1)
                     wandb.log({'test_RMSE': math.sqrt(((onehot - prob)**2).mean().item())})
             else:
                 raise NotImplementedError
@@ -102,7 +104,7 @@ def validate(param, device, testloader, model, epoch):
         if param['wandb']:
             wandb.log({'test_accuracy': acc})
         test_loss = tot_loss/len(testloader)
-        print(f'Epoch {epoch}, Test loss: {test_loss}, Test Accuracy: {acc:.2f}%')
+        print(f'Epoch {epoch}, Test loss: {test_loss:.2g}, Test Accuracy: {acc:.2f}%')
 
     return test_loss
 
@@ -121,23 +123,23 @@ def train(param, device, trainloader, testloader, model, optimizer, epoch):
         if param['vmp']:
             # Forward pass
             if param['dataset'] == 'pems':
-                prob, var_prob = model(x)
+                logit, var_logit = model(x)
             else:
                 raise NotImplementedError
 
             # Compute the ELBO
-            nll, kl = loss_vmp(prob, var_prob, y, model, param)
+            nll, kl = loss_vmp(logit, var_logit, y, model, param)
             loss = nll + param['kl_factor']*kl
 
             if param['wandb']:
-                wandb.log({'train_nll': nll.item(), 'train_kl': kl.item(), 'train_var': {var_prob.mean().item()}})
+                wandb.log({'train_nll': nll.item(), 'train_kl': kl.item(), 'train_var': var_logit.mean().item()})
 
         else:
             # Forward pass
             if param['dataset'] == 'pems':
-                prob = model(x)
+                logit = model(x)
                 # Compute the loss
-                loss = nn.functional.cross_entropy(x, y)
+                loss = nn.functional.cross_entropy(logit, y)
             else:
                 raise NotImplementedError
 
@@ -154,7 +156,7 @@ def train(param, device, trainloader, testloader, model, optimizer, epoch):
             wandb.log({'train_loss': loss.item()})
 
         # Compute metrics
-        train_corr, train_num = compute_metrics(param, epoch, idx, trainloader, model, y, prob)
+        train_corr, train_num = compute_metrics(param, epoch, idx, trainloader, model, y, logit)
         train_tot_corr += train_corr
         train_tot_num += train_num
 

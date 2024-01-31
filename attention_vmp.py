@@ -155,7 +155,7 @@ class EncoderVMP(nn.Module):
             x, var_x = self.norm2[i](x, var_x)
             # Linear layer with skip connection
             x0, var_x0 = x[:], var_x[:]
-            x, var_x, j_relu = relu_vmp(*self.fc[i](x, var_x), tol=self.tol)
+            x, var_x = relu_vmp(*self.fc[i](x, var_x), tol=self.tol)
             x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
         x, var_x = self.norm1[self.n-2](x, var_x)
         if self.encode:
@@ -218,7 +218,7 @@ class DecoderVMP(nn.Module):
             x, var_x = self.norm3[i](x, var_x)
             # Linear layer with skip connection
             x0, var_x0 = x[:], var_x[:]
-            x, var_x, j_relu = relu_vmp(*self.fc[i](x, var_x), return_jac=True, tol=self.tol)
+            x, var_x = relu_vmp(*self.fc[i](x, var_x), return_jac=True, tol=self.tol)
             x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
         return sigmoid_vmp(*self.fc[-1](x, var_x), tol=self.tol)
 
@@ -273,7 +273,8 @@ class TransformerClassifierVMP(nn.Module):
         self.nb_clas = len(clas_dim)
         self.tol = param['tol']
         self.encoder = EncoderVMP(param, device, encode=False)
-        for i in range(self.clas_dim-1):
+        self.clas = nn.ModuleList()
+        for i in range(self.nb_clas-1):
             self.clas.append(LinearVMP(clas_dim[i], clas_dim[i+1], var_init=param['var_init'], tol=self.tol))
         self.classifier = LinearVMP(clas_dim[-1], param['output_dim'], var_init=param['var_init'], tol=self.tol)
 
@@ -285,4 +286,4 @@ class TransformerClassifierVMP(nn.Module):
         var_x = var_x.mean(dim=1)/t_in
         for i in range(self.nb_clas-1):
             x, var_x = relu_vmp(*self.clas[i](x, var_x), tol=self.tol)
-        return softmax_vmp(*self.classifier(x, var_x), tol=self.tol)
+        return self.classifier(x, var_x)

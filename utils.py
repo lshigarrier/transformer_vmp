@@ -11,7 +11,7 @@ from attention_vmp import TransformerClassifierVMP
 
 def load_yaml(file_name=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument(name_or_flag='--config', type=str)
+    parser.add_argument('--config')
     args = parser.parse_args()
     if file_name:
         yaml_file = f'config/{file_name}.yml'

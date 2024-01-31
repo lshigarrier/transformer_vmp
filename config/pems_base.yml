@@ -1,4 +1,4 @@
-name : pems_vmp1
+name : pems_base1
 model : weights.pt
 # load existing weights from ./models/[name]/[model]
 load : False
@@ -10,15 +10,15 @@ wandb : True
 # model
 
 # nb of multi-head (n), nb of heads per multi-head (h)
-dim : [2, 9]
+dim : [12, 18]
 # embedding dimensions, we must have emb[-1]%h = 0
-emb : [63,]
+emb : [504,]
 # classifiers dimensions, we must have emb[-1] = clas[0]
-clas : [63,]
+clas : [504,]
 # Residual connection mode for variance computation : identity, independence, taylor
 residual : independence
 # use uncertainty quantification
-vmp : True
+vmp : False
 
 # training
 
@@ -34,14 +34,14 @@ l2_reg : 0.
 # gradient clipping
 clip : 10
 # nb of workers for dataloaders
-workers : 8
+workers : 4
 # tolerance (0 < tol < 1) for:
 # - removing nan -> tol
 # - removing posinf -> 1/tol, and neginf -> -1/tol
 # - clamping positive numbers between tol and 1/tol
 tol : 1.e-6
 # initialization factor for variance
-var_init : 1e.-6
+var_init : 1.e-6
 
 # dataset
 

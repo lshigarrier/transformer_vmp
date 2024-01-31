@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import torch
 from scipy.io import arff
 
 
@@ -26,7 +27,7 @@ def load_pems(dataset='TRAIN'):
     # y must be squeezed for proper functioning of one_hot
     # Remove 1 to have range [0, 6]
     y = y.squeeze() - 1
-    return x, y
+    return torch.Tensor(x).transpose(dim0=1, dim1=2), torch.Tensor(y).long()
 
 
 def main():

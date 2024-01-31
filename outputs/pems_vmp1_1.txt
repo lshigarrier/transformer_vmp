@@ -1,0 +1,117 @@
+wandb: Currently logged in as: lshigarrier. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.16.2
+wandb: Run data is saved locally in C:\Users\loic.shi-garrier\Code\transformer_vmp\wandb\run-20240131_101645-zghil3bi
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run cool-dragon-11
+wandb:  View project at https://wandb.ai/lshigarrier/transformer_vmp
+wandb:  View run at https://wandb.ai/lshigarrier/transformer_vmp/runs/zghil3bi
+name: pems_vmp1
+model: weights.pt
+load: False
+seed: 42
+gpu_number: None
+wandb: True
+dim: [6, 9]
+emb: [63]
+clas: [63]
+residual: independence
+vmp: True
+epochs: 5
+batch_size: 64
+optimizer: adam
+learning_rate: 0.01
+kl_factor: 1e-08
+end_factor: 0.001
+l2_reg: 0.0
+clip: 10
+workers: 4
+tol: 1e-06
+var_init: 1e-06
+dataset: pems
+input_dim: 963
+t_in: 144
+output_dim: 7
+t_out: None
+device: cpu
+Initialize model
+Start training
+Epoch 1: 0/267 0%
+Epoch 1: 64/267 20%
+Epoch 1: 128/267 40%
+Epoch 1: 192/267 60%
+Epoch 1: 203/267 80%
+Epoch 1, Test loss: 6.5e+02, Test Accuracy: 12.72%
+Epoch training time (s): 180
+Saving model
+Epoch 2: 0/267 0%
+Epoch 2: 64/267 20%
+Epoch 2: 128/267 40%
+Epoch 2: 192/267 60%
+Epoch 2: 203/267 80%
+Epoch 2, Test loss: 92, Test Accuracy: 12.72%
+Epoch training time (s): 165
+Saving model
+Epoch 3: 0/267 0%
+Epoch 3: 64/267 20%
+Epoch 3: 128/267 40%
+Epoch 3: 192/267 60%
+Epoch 3: 203/267 80%
+Epoch 3, Test loss: 7.2, Test Accuracy: 12.72%
+Epoch training time (s): 107
+Saving model
+Epoch 4: 0/267 0%
+Epoch 4: 64/267 20%
+Epoch 4: 128/267 40%
+Epoch 4: 192/267 60%
+Epoch 4: 203/267 80%
+Epoch 4, Test loss: 13, Test Accuracy: 12.72%
+Epoch training time (s): 141
+Epoch 5: 0/267 0%
+Epoch 5: 64/267 20%
+Epoch 5: 128/267 40%
+Epoch 5: 192/267 60%
+Epoch 5: 203/267 80%
+Epoch 5, Test loss: -2, Test Accuracy: 12.72%
+Epoch training time (s): 151
+Saving model
+Saving final model
+Best epoch: 5
+Best loss: -2
+Training time (s): 744.8804757595062
+wandb: \ 0.017 MB of 0.017 MB uploaded (0.001 MB deduped)
+wandb: Run history:
+wandb: average_gradient_norm █▇▇▅▃▃▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:          lr_scheduler █▆▄▃▁
+wandb:             test_RMSE ▂▁▃▇▅█▆▅▇▇▆█▇▆█
+wandb:         test_accuracy ▁▁▁▁▁
+wandb:               test_kl ▁▁▁▅▅▅▇▇▇██████
+wandb:             test_loss ▇▆█▂▂▂▁▁▁▁▁▁▁▁▁
+wandb:              test_nll ▇▆█▂▂▂▁▁▁▁▁▁▁▁▁
+wandb:              test_var ███▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:            train_RMSE ▁▄▃▁█▅▄▅▄▄▆▆▆▇▆▇▆▅▇▇▇▆▇▆▇
+wandb:        train_accuracy ▁████
+wandb:              train_kl ▁▁▂▃▃▄▅▅▆▆▆▇▇▇▇██████████
+wandb:            train_loss ▁█▁▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train_nll ▁█▁▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train_var █▆▆█▁▁▃▅▃▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:
+wandb: Run summary:
+wandb: average_gradient_norm 0.21351
+wandb:          lr_scheduler 1e-05
+wandb:             test_RMSE 0.50223
+wandb:         test_accuracy 12.71676
+wandb:               test_kl 165674.4375
+wandb:             test_loss -1.99792
+wandb:              test_nll -1.99958
+wandb:              test_var 1.71889
+wandb:            train_RMSE 0.50798
+wandb:        train_accuracy 16.10487
+wandb:              train_kl 165674.28125
+wandb:            train_loss -1.65421
+wandb:             train_nll -1.65587
+wandb:             train_var 1.61863
+wandb:
+wandb:  View run cool-dragon-11 at: https://wandb.ai/lshigarrier/transformer_vmp/runs/zghil3bi
+wandb:  View job at https://wandb.ai/lshigarrier/transformer_vmp/jobs/QXJ0aWZhY3RDb2xsZWN0aW9uOjEzNTM2MzUzNw==/version_details/v4
+wandb: Synced 6 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
+wandb: Find logs at: .\wandb\run-20240131_101645-zghil3bi\logs

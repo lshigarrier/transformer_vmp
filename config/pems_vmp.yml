@@ -1,0 +1,56 @@
+name : pems_vmp1
+model : weights.pt
+# load existing weights from ./models/[name]/[model]
+load : False
+seed : 42
+gpu_number : ~
+# Use wandb
+wandb : True
+
+# model
+
+# nb of multi-head (n), nb of heads per multi-head (h)
+dim : [6, 9]
+# embedding dimensions, we must have emb[-1]%h = 0
+emb : [63,]
+# classifiers dimensions, we must have emb[-1] = clas[0]
+clas : [63,]
+# Residual connection mode for variance computation : identity, independence, taylor
+residual : independence
+# use uncertainty quantification
+vmp : True
+
+# training
+
+epochs : 5
+batch_size : 64
+optimizer : adam
+learning_rate : 1.e-2
+# l2 regularization hyperparameter in ELBO
+kl_factor : 1.e-8
+# End factor to multiply the learning rate at the last epoch
+end_factor : 1.e-3
+l2_reg : 0.
+# gradient clipping
+clip : 10
+# nb of workers for dataloaders
+workers : 4
+# tolerance (0 < tol < 1) for:
+# - removing nan -> tol
+# - removing posinf -> 1/tol, and neginf -> -1/tol
+# - clamping positive numbers between tol and 1/tol
+tol : 1.e-6
+# initialization factor for variance
+var_init : 1.e-6
+
+# dataset
+
+dataset : pems
+# input dimension
+input_dim : 963
+# input sequence length
+t_in : 144
+# output dimension
+output_dim : 7
+# output sequence length
+t_out : ~

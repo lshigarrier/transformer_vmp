@@ -11,7 +11,7 @@ def no_nan(x, tol):
     return torch.nan_to_num(x, nan=tol, posinf=1/tol, neginf=-1/tol)
 
 
-def loss_vmp(prob, var_prob, target, model, param):
+def loss_vmp(logit, var_logit, target, model, param):
     # Compute the regularization term
     kl = 0
     for name, p in model.named_parameters():
@@ -23,6 +23,7 @@ def loss_vmp(prob, var_prob, target, model, param):
                 kl += no_nan(p**2, param['tol']).sum()
 
     # Compute the expected negative log-likelihood
+    prob, var_prob = softmax_vmp(logit, var_logit, tol=param['tol'])
     prob = no_nan(prob, param['tol']).clamp(min=param['tol'], max=1-param['tol'])
     target = nn.functional.one_hot(target, num_classes=param['output_dim'])
     var_prob = clamp_nan(var_prob, param['tol'])

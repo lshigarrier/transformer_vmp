@@ -4,20 +4,25 @@ import torch.nn as nn
 
 
 def get_positional_encoding(d, t_in, device):
-    if d % 2 != 0:
-        raise RuntimeError
-    pos = torch.zeros(t_in, d).to(device)
+    if d % 2 == 0:
+        d2 = d//2
+    else:
+        d2 = d//2 + 1
+    pos = torch.zeros(t_in, 2*d2).to(device)
     for t in range(t_in):
         pos[t, :] = t + 1
-    omega = torch.ones(1, d // 2).to(device)
-    for k in range(d // 2):
-        omega[0, k] = 1 / 1000 ** (2 * k / d)
+    omega = torch.ones(1, d2).to(device)
+    for k in range(d2):
+        omega[0, k] = 1/1000**(k/d2)
     omega = omega.repeat_interleave(2, dim=1)
-    pos = pos * omega
-    phase = torch.tensor([0, torch.pi / 2]).to(device)
-    phase = phase.repeat(d // 2).unsqueeze(0)
+    pos = pos*omega
+    phase = torch.tensor([0, torch.pi/2]).to(device)
+    phase = phase.repeat(d2).unsqueeze(0)
     pos = torch.sin(pos + phase)
-    return pos
+    if d % 2 == 0:
+        return pos
+    else:
+        return pos[:, :-1]
 
 
 class AttentionHead(nn.Module):
@@ -128,7 +133,6 @@ class Encoder(nn.Module):
             self.norm2.append(nn.LayerNorm(k))
             self.fc.append(nn.Linear(k, k))
         self.norm1.append(nn.LayerNorm(k))
-        self.multi.append(FinalHead(h, k))
         # If used as encoder: use FinalHead
         if encode:
             self.multi.append(FinalHead(h, k))
@@ -253,7 +257,8 @@ class TransformerClassifier(nn.Module):
         clas_dim = param['clas']
         self.nb_clas = len(clas_dim)
         self.encoder = Encoder(param, device, encode=False)
-        for i in range(self.clas_dim-1):
+        self.clas = nn.ModuleList()
+        for i in range(self.nb_clas-1):
             self.clas.append(nn.Linear(clas_dim[i], clas_dim[i+1]))
         self.classifier = nn.Linear(clas_dim[-1], param['output_dim'])
 
@@ -263,4 +268,4 @@ class TransformerClassifier(nn.Module):
         x = x.mean(dim=1)
         for i in range(self.nb_clas-1):
             x = nn.functional.relu(self.clas[i](x))
-        return nn.functional.softmax(self.classifier(x), dim=-1)
+        return self.classifier(x)
