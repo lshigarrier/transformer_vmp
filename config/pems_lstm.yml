@@ -1,4 +1,4 @@
-name : pems_base1
+name : pems_lstm1
 model : weights.pt
 # load existing weights from ./models/[name]/[model]
 load : False
@@ -12,15 +12,15 @@ wandb : True
 # model
 
 # use transformer or lstm
-transfo : True
+transfo : False
 # nb of multi-head (n), nb of heads per multi-head (h)
-dim : [2, 9]
+dim : ~
 # use embedding layers
 embed : False
 # embedding dimensions, if embed: we must have emb[-1]%h = 0, else: we must have input_dim%h=0
-emb : ~
+emb : [400,]
 # classifiers dimensions, we must have emb[-1] = clas[0]
-clas : [963,]
+clas : ~
 # use uncertainty quantification
 vmp : False
 # residual connection mode for variance computation : identity, independence, taylor

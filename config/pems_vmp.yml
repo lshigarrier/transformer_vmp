@@ -2,6 +2,8 @@ name : pems_vmp1
 model : weights.pt
 # load existing weights from ./models/[name]/[model]
 load : False
+# Training or inference
+train : True
 seed : 42
 gpu_number : ~
 # Use wandb
@@ -9,6 +11,8 @@ wandb : True
 
 # model
 
+# use transformer or lstm
+transfo : True
 # nb of multi-head (n), nb of heads per multi-head (h)
 dim : [6, 9]
 # use embedding layers

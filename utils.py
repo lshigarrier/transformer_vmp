@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.optim as optim
 from datasets import load_pems
-from attention import TransformerClassifier
+from attention import TransformerClassifier, LSTMClassifier
 from attention_vmp import TransformerClassifierVMP
 
 
@@ -55,8 +55,10 @@ def initialize(param):
         x_test, y_test = load_pems(dataset='TEST')
         if param['vmp']:
             model = TransformerClassifierVMP(param, device)
-        else:
+        elif param['transfo']:
             model = TransformerClassifier(param, device)
+        else:
+            model = LSTMClassifier(param)
     else:
         raise NotImplementedError
     nb_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -66,9 +68,10 @@ def initialize(param):
     if param['load']:
         statedict = torch.load(f=f'models/{param["name"]}/{param["model"]}', map_location='cpu')
         model.load_state_dict(statedict)
-        for parameter in model.parameters():
-            parameter.requires_grad = False
-        model.eval()
+        if not param['train']:
+            for parameter in model.parameters():
+                parameter.requires_grad = False
+            model.eval()
 
     # Create data loaders
     trainset = TensorDataset(x_train, y_train)

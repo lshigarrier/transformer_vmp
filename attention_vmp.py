@@ -26,6 +26,7 @@ class AttentionHeadVMP(nn.Module):
         self.value = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
 
     def forward(self, x, var_x, masking=False):
+        # b: batch size, l: sequence length
         q, var_q = self.query(x, var_x)  # b x l x h.s where s = d//h
         q = q.reshape(q.shape[0], q.shape[1], self.h, -1).transpose(1, 2)  # b x h x l x s
         var_q = var_q.reshape(var_q.shape[0], var_q.shape[1], self.h, -1).transpose(1, 2)  # b x h x l x s

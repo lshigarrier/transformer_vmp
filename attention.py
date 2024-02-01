@@ -43,6 +43,7 @@ class AttentionHead(nn.Module):
         self.value = nn.Linear(d, h*(d//h), bias=False)
 
     def forward(self, x, masking=False):
+        # b: batch size, l: sequence length
         q = self.query(x)  # b x l x h.s where s = d//h
         q = q.reshape(q.shape[0], q.shape[1], self.h, -1).transpose(1, 2)  # b x h x l x s
         k = self.key(x)  # b x l x h.s
@@ -284,4 +285,16 @@ class TransformerClassifier(nn.Module):
         x = x.mean(dim=1)
         for i in range(self.nb_clas-1):
             x = nn.functional.relu(self.clas[i](x))
+        return self.classifier(x)
+
+
+class LSTMClassifier(nn.Module):
+    def __init__(self, param):
+        super().__init__()
+        self.lstm = nn.LSTM(param['input_dim'], param['emb'][-1], batch_first=True)
+        self.classifier = nn.Linear(param['emb'][-1], param['output_dim'])
+
+    def forward(self, x):
+        _, (x, _) = self.lstm(x)
+        x = x.squeeze()
         return self.classifier(x)

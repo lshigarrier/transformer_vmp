@@ -8,7 +8,7 @@ from utils import load_yaml, initialize
 from vmp import loss_vmp
 
 
-def compute_metrics(param, epoch, idx, trainloader, model, target, logit):
+def compute_metrics(param, idx, trainloader, model, target, logit):
     # Compute average gradient norm
     grad_sum = 0
     grad_tot = 0
@@ -42,12 +42,13 @@ def compute_metrics(param, epoch, idx, trainloader, model, target, logit):
             total = idx*param['batch_size']
         else:
             total = (idx - 1)*param['batch_size'] + pred.shape[0]
-        print(f'Epoch {epoch}: {total}/{len(trainloader.dataset)} {100*idx/len(trainloader):.0f}%')
+        print(f'{total}/{len(trainloader.dataset)} {100*idx/len(trainloader):.0f}%')
 
     return train_corr, train_num
 
 
-def validate(param, device, testloader, model, epoch):
+def validate(param, device, testloader, model):
+    print('Validation')
     model.eval()
 
     tot_loss = 0
@@ -104,12 +105,12 @@ def validate(param, device, testloader, model, epoch):
         if param['wandb']:
             wandb.log({'test_accuracy': acc})
         test_loss = tot_loss/len(testloader)
-        print(f'Epoch {epoch}, Test loss: {test_loss:.3g}, Test Accuracy: {acc:.2f}%')
+        print(f'Test loss: {test_loss:.3g}, Test Accuracy: {acc:.2f}%')
 
-    return test_loss
+    return acc
 
 
-def train(param, device, trainloader, testloader, model, optimizer, epoch):
+def train(param, device, trainloader, testloader, model, optimizer):
     train_tot_corr = 0
     train_tot_num = 0
 
@@ -156,7 +157,7 @@ def train(param, device, trainloader, testloader, model, optimizer, epoch):
             wandb.log({'train_loss': loss.item()})
 
         # Compute metrics
-        train_corr, train_num = compute_metrics(param, epoch, idx, trainloader, model, y, logit)
+        train_corr, train_num = compute_metrics(param, idx, trainloader, model, y, logit)
         train_tot_corr += train_corr
         train_tot_num += train_num
 
@@ -164,20 +165,21 @@ def train(param, device, trainloader, testloader, model, optimizer, epoch):
     train_acc = 100*train_tot_corr/train_tot_num
     if param['wandb']:
         wandb.log({'train_accuracy': train_acc})
-    return validate(param, device, testloader, model, epoch)
+    return validate(param, device, testloader, model)
 
 
 def training(param, device, trainloader, testloader, model, optimizer, scheduler):
     print('Start training')
     tac = time.time()
-    best_loss = float('inf')
+    best_acc = 0
     best_epoch = 0
 
     for epoch in range(1, param['epochs']+1):
+        print(f'Epoch {epoch}')
         tic = time.time()
 
         # Train for one epoch
-        test_loss = train(param, device, trainloader, testloader, model, optimizer, epoch)
+        test_acc = train(param, device, trainloader, testloader, model, optimizer)
 
         # Update the learning rate scheduler
         scheduler.step()
@@ -187,8 +189,8 @@ def training(param, device, trainloader, testloader, model, optimizer, scheduler
         print(f'Epoch training time (s): {time.time() - tic:.0f}')
 
         # Save model
-        if test_loss < best_loss:
-            best_loss = test_loss
+        if test_acc > best_acc:
+            best_acc = test_acc
             best_epoch = epoch
             print('Saving model')
             torch.save(model.state_dict(), f=f'models/{param["name"]}/weights.pt')
@@ -196,7 +198,7 @@ def training(param, device, trainloader, testloader, model, optimizer, scheduler
     print('Saving final model')
     torch.save(model.state_dict(), f=f'models/{param["name"]}/final.pt')
     print(f'Best epoch: {best_epoch}')
-    print(f'Best loss: {best_loss:.2g}')
+    print(f'Best accuracy: {best_acc:.2g}')
     print(f'Training time (s): {time.time() - tac}')
 
 
