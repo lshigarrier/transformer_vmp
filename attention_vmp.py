@@ -12,7 +12,7 @@ class AttentionHeadVMP(nn.Module):
     d: input dimension
     mode: residual connection mode for variance computation : identity, independence, taylor
     """
-    def __init__(self, h, d, device, mode='identity', var_init=1e-8, tol=1e-3):
+    def __init__(self, h, d, device, mode='identity', var_init=1e-12):
         super().__init__()
         if d % h != 0:
             raise RuntimeError
@@ -20,10 +20,9 @@ class AttentionHeadVMP(nn.Module):
         self.h = h
         self.device = device
         self.mode = mode
-        self.tol = tol
-        self.query = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
-        self.key = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
-        self.value = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
+        self.query = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
+        self.key = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
+        self.value = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
 
     def forward(self, x, var_x, masking=False):
         # b: batch size, l: sequence length
@@ -36,31 +35,30 @@ class AttentionHeadVMP(nn.Module):
         v, var_v = self.value(x, var_x)  # b x l x h.s
         v = v.reshape(v.shape[0], v.shape[1], self.h, -1).transpose(1, 2)  # b x h x l x s
         var_v = var_v.reshape(var_v.shape[0], var_v.shape[1], self.h, -1).transpose(1, 2)  # b x h x l x s
-        a, var_a = quadratic_vmp(q, var_q, k.transpose(2, 3), var_k.transpose(2, 3), tol=self.tol)  # b x h x l x l
+        a, var_a = quadratic_vmp(q, var_q, k.transpose(2, 3), var_k.transpose(2, 3))  # b x h x l x l
         a, var_a = a/self.rd, var_a/self.rd**2
         if masking:
             mask = torch.ones(*a.shape).triu(diagonal=1).to(self.device)
             mask = mask.masked_fill(mask == 1, float('-inf'))
             a = a + mask
-        a, var_a = softmax_vmp(a, var_a, tol=self.tol)  # b x h x l x l
-        a, var_a = quadratic_vmp(a, var_a, v, var_v, tol=self.tol)
+        a, var_a = softmax_vmp(a, var_a)  # b x h x l x l
+        a, var_a = quadratic_vmp(a, var_a, v, var_v)
         a, var_a = a.transpose(1, 2), var_a.transpose(1, 2)  # b x l x h x s
         return residual_vmp(x, var_x, a.reshape(a.shape[0], a.shape[1], -1),
-                            var_a.reshape(var_a.shape[0], var_a.shape[1], -1),
-                            mode=self.mode, tol=self.tol)  # b x l x h.s
+                            var_a.reshape(var_a.shape[0], var_a.shape[1], -1), mode=self.mode)  # b x l x h.s
 
 
 class FinalHeadVMP(nn.Module):
     """
     Last Multi Head of the encoder
     """
-    def __init__(self, h, d, var_init=1e-8, tol=1e-3):
+    def __init__(self, h, d, var_init=1e-12):
         super().__init__()
         if d % h != 0:
             raise RuntimeError
         self.h = h
-        self.key = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
-        self.value = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
+        self.key = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
+        self.value = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
 
     def forward(self, x, var_x):
         k, var_k = self.key(x, var_x)
@@ -76,7 +74,7 @@ class DecoderHeadVMP(nn.Module):
     """
     Multi Head Attention using key and value from the encoder
     """
-    def __init__(self, h, d, device, mode='identity', var_init=1e-8, tol=1e-3):
+    def __init__(self, h, d, device, mode='identity', var_init=1e-12):
         super().__init__()
         if d % h != 0:
             raise RuntimeError
@@ -84,24 +82,22 @@ class DecoderHeadVMP(nn.Module):
         self.h = h
         self.device = device
         self.mode = mode
-        self.tol = tol
-        self.query = LinearVMP(d, h*(d//h), bias=False, var_init=var_init, tol=tol)
+        self.query = LinearVMP(d, h*(d//h), bias=False, var_init=var_init)
 
     def forward(self, x, var_x, k, var_k, v, var_v):
         q, var_q = self.query(x, var_x)
         q = q.reshape(q.shape[0], q.shape[1], self.h, -1).transpose(1, 2)
         var_q = var_q.reshape(var_q.shape[0], var_q.shape[1], self.h, -1).transpose(1, 2)
-        a, var_a = quadratic_vmp(q, var_q, k.transpose(2, 3), var_k.transpose(2, 3), tol=self.tol)
+        a, var_a = quadratic_vmp(q, var_q, k.transpose(2, 3), var_k.transpose(2, 3))
         a, var_a = a/self.rd, var_a/self.rd**2
         mask = torch.ones(*a.shape).triu(diagonal=1).to(self.device)
         mask = mask.masked_fill(mask == 1, float('-inf'))
         a = a + mask
-        a, var_a = softmax_vmp(a, var_a, tol=self.tol)
-        a, var_a = quadratic_vmp(a, var_a, v, var_v, tol=self.tol)
+        a, var_a = softmax_vmp(a, var_a)
+        a, var_a = quadratic_vmp(a, var_a, v, var_v)
         a, var_a = a.transpose(1, 2), var_a.transpose(1, 2)
         return residual_vmp(x, var_x, a.reshape(a.shape[0], a.shape[1], -1),
-                            var_a.reshape(var_a.shape[0], var_a.shape[1], -1),
-                            mode=self.mode, tol=self.tol)
+                            var_a.reshape(var_a.shape[0], var_a.shape[1], -1), mode=self.mode)
 
 
 class EncoderVMP(nn.Module):
@@ -115,7 +111,6 @@ class EncoderVMP(nn.Module):
         n, h = param['dim']
         self.n = n
         self.mode = param['residual']
-        self.tol = param['tol']
         self.encode = encode
         self.embed = param['embed']
         # Use embedding layers or not
@@ -124,9 +119,9 @@ class EncoderVMP(nn.Module):
             k = emb_dim[-1]
             self.nb_emb = len(emb_dim)
             self.emb = nn.ModuleList()
-            self.emb.append(LinearVMP(param['input_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
+            self.emb.append(LinearVMP(param['input_dim'], emb_dim[0], var_init=param['var_init']))
             for i in range(len(emb_dim) - 1):
-                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i + 1], var_init=param['var_init'], tol=self.tol))
+                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i + 1], var_init=param['var_init']))
         else:
             k = param['input_dim']
         self.pos = get_positional_encoding(k, param['t_in'], device)
@@ -137,22 +132,22 @@ class EncoderVMP(nn.Module):
         for i in range(n-1):
             if i != 0:
                 self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
-            self.multi.append(AttentionHeadVMP(h, k, device, self.mode, param['var_init'], self.tol))
-            self.norm2.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
-            self.fc.append(LinearVMP(k, k, var_init=param['var_init'], tol=self.tol))
-        self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
+            self.multi.append(AttentionHeadVMP(h, k, device, self.mode, var_init=param['var_init']))
+            self.norm2.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
+            self.fc.append(LinearVMP(k, k, var_init=param['var_init']))
+        self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
         # If used as encoder: use FinalHead
         if self.encode:
-            self.multi.append(FinalHeadVMP(h, k, param['var_init'], self.tol))
+            self.multi.append(FinalHeadVMP(h, k, param['var_init']))
         # Else, if used for classification or prediction: use AttentionHead
         else:
-            self.multi.append(AttentionHeadVMP(h, k, device, self.mode, param['var_init'], self.tol))
+            self.multi.append(AttentionHeadVMP(h, k, device, self.mode, var_init=param['var_init']))
 
     def forward(self, x):
         var_x = torch.zeros_like(x)
         if self.embed:
             for i in range(self.nb_emb-1):
-                x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
+                x, var_x = relu_vmp(*self.emb[i](x, var_x))
             x, var_x = self.emb[-1](x, var_x)
         x = x + self.pos
         for i in range(self.n-1):
@@ -163,8 +158,8 @@ class EncoderVMP(nn.Module):
             x, var_x = self.norm2[i](x, var_x)
             # Linear layer with skip connection
             x0, var_x0 = x[:], var_x[:]
-            x, var_x = relu_vmp(*self.fc[i](x, var_x), tol=self.tol)
-            x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
+            x, var_x = relu_vmp(*self.fc[i](x, var_x))
+            x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode)
         x, var_x = self.norm1[self.n-2](x, var_x)
         return self.multi[self.n-1](x, var_x)
 
@@ -181,7 +176,6 @@ class DecoderVMP(nn.Module):
         self.n = n
         self.device = device
         self.mode = param['residual']
-        self.tol = param['tol']
         self.embed = param['embed']
         # Use embedding layers or not
         if self.embed:
@@ -189,9 +183,9 @@ class DecoderVMP(nn.Module):
             k = emb_dim[-1]
             self.nb_emb = len(emb_dim)
             self.emb = nn.ModuleList()
-            self.emb.append(LinearVMP(param['output_dim'], emb_dim[0], var_init=param['var_init'], tol=self.tol))
+            self.emb.append(LinearVMP(param['output_dim'], emb_dim[0], var_init=param['var_init']))
             for i in range(len(emb_dim) - 1):
-                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i + 1], var_init=param['var_init'], tol=self.tol))
+                self.emb.append(LinearVMP(emb_dim[i], emb_dim[i+1], var_init=param['var_init']))
         else:
             k = param['output_dim']
         self.pos = get_positional_encoding(k, param['t_out']+1, device)
@@ -203,20 +197,20 @@ class DecoderVMP(nn.Module):
         self.norm3 = nn.ModuleList()
         for i in range(n):
             if i != 0:
-                self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
-            self.multi1.append(AttentionHeadVMP(h, k, device, self.mode, param['var_init'], self.tol))
-            self.norm2.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
-            self.multi2.append(DecoderHeadVMP(h, k, device, self.mode, param['var_init'], self.tol))
-            self.norm3.append(LayerNormVMP(k, var_init=param['var_init'], tol=self.tol))
-            self.fc.append(LinearVMP(k, k, var_init=param['var_init'], tol=self.tol))
+                self.norm1.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
+            self.multi1.append(AttentionHeadVMP(h, k, device, self.mode, var_init=param['var_init']))
+            self.norm2.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
+            self.multi2.append(DecoderHeadVMP(h, k, device, self.mode, var_init=param['var_init']))
+            self.norm3.append(LayerNormVMP(k, var_init=param['var_init'], tol=param['tol']))
+            self.fc.append(LinearVMP(k, k, var_init=param['var_init']))
         if self.embed:
-            self.fc.append(LinearVMP(k, param['output_dim'], var_init=param['var_init'], tol=self.tol))
+            self.fc.append(LinearVMP(k, param['output_dim'], var_init=param['var_init']))
 
     def forward(self, x, k, var_k, v, var_v):
         var_x = torch.zeros_like(x)
         if self.embed:
             for i in range(self.nb_emb-1):
-                x, var_x = relu_vmp(*self.emb[i](x, var_x), tol=self.tol)
+                x, var_x = relu_vmp(*self.emb[i](x, var_x))
             x, var_x = self.emb[-1](x, var_x)
         x = x + self.pos
         for i in range(self.n):
@@ -229,11 +223,11 @@ class DecoderVMP(nn.Module):
             x, var_x = self.norm3[i](x, var_x)
             # Linear layer with skip connection
             x0, var_x0 = x[:], var_x[:]
-            x, var_x = relu_vmp(*self.fc[i](x, var_x), return_jac=True, tol=self.tol)
-            x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode, tol=self.tol)
+            x, var_x = relu_vmp(*self.fc[i](x, var_x), return_jac=True)
+            x, var_x = residual_vmp(x0, var_x0, x, var_x, mode=self.mode)
             if self.embed:
                 x, var_x = self.fc[-1](x, var_x)
-        return sigmoid_vmp(x, var_x, tol=self.tol)
+        return sigmoid_vmp(x, var_x)
 
 
 class TransformerVMP(nn.Module):
@@ -284,12 +278,11 @@ class TransformerClassifierVMP(nn.Module):
         super().__init__()
         clas_dim = param['clas']
         self.nb_clas = len(clas_dim)
-        self.tol = param['tol']
         self.encoder = EncoderVMP(param, device, encode=False)
         self.clas = nn.ModuleList()
         for i in range(self.nb_clas-1):
-            self.clas.append(LinearVMP(clas_dim[i], clas_dim[i+1], var_init=param['var_init'], tol=self.tol))
-        self.classifier = LinearVMP(clas_dim[-1], param['output_dim'], var_init=param['var_init'], tol=self.tol)
+            self.clas.append(LinearVMP(clas_dim[i], clas_dim[i+1], var_init=param['var_init']))
+        self.classifier = LinearVMP(clas_dim[-1], param['output_dim'], var_init=param['var_init'])
 
     def forward(self, x):
         x, var_x = self.encoder(x)
@@ -298,5 +291,5 @@ class TransformerClassifierVMP(nn.Module):
         x = x.mean(dim=1)
         var_x = var_x.mean(dim=1)/t_in
         for i in range(self.nb_clas-1):
-            x, var_x = relu_vmp(*self.clas[i](x, var_x), tol=self.tol)
+            x, var_x = relu_vmp(*self.clas[i](x, var_x))
         return self.classifier(x, var_x)

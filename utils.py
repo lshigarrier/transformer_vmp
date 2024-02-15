@@ -24,6 +24,13 @@ def load_yaml(file_name=None):
     return param
 
 
+def load_partial_state_dict(model, other_state_dict):
+    with torch.no_grad():
+        for name, par in model.named_parameters():
+            if name in other_state_dict:
+                par.copy_(other_state_dict[name])
+
+
 def initialize(param):
     # Print param
     for key in param:
@@ -66,12 +73,22 @@ def initialize(param):
 
     # Load model
     if param['load']:
+        print('Load parameters')
         statedict = torch.load(f=f'models/{param["name"]}/{param["model"]}', map_location='cpu')
-        model.load_state_dict(statedict)
+        if param['vmp']:
+            load_partial_state_dict(model, statedict)
+        else:
+            model.load_state_dict(statedict)
         if not param['train']:
             for parameter in model.parameters():
                 parameter.requires_grad = False
             model.eval()
+    model.to(device)
+
+    # Print parameters names
+    print("Model parameters:")
+    for name, par in model.named_parameters():
+        print(name)
 
     # Create data loaders
     trainset = TensorDataset(x_train, y_train)

@@ -1,5 +1,5 @@
 name : pems_vmp1
-model : weights.pt
+model : deterministic2.pt
 # load existing weights from ./models/[name]/[model]
 load : False
 # Training or inference
@@ -14,7 +14,7 @@ wandb : True
 # use transformer or lstm
 transfo : True
 # nb of multi-head (n), nb of heads per multi-head (h)
-dim : [6, 9]
+dim : [2, 9]
 # use embedding layers
 embed : False
 # embedding dimensions, if embed: we must have emb[-1]%h = 0, else: we must have input_dim%h=0
@@ -28,7 +28,7 @@ residual : independence
 
 # training
 
-epochs : 10
+epochs : 100
 batch_size : 32
 optimizer : adam
 learning_rate : 1.e-3
@@ -36,18 +36,15 @@ learning_rate : 1.e-3
 end_factor : 1.e-1
 l2_reg : 0.
 # l2 regularization hyperparameter in ELBO
-kl_factor : 1.e-8
+kl_factor : 1.e-9
 # gradient clipping
 clip : 10
 # nb of workers for dataloaders
 workers : 4
-# tolerance (0 < tol < 1) for:
-# - removing nan -> tol
-# - removing posinf -> 1/tol, and neginf -> -1/tol
-# - clamping positive numbers between tol and 1/tol
-tol : 1.e-6
+# tolerance in (0, 1) for avoiding nan in log(), 1/, sqrt()
+tol : 1.e-9
 # initialization factor for variance
-var_init : 1.e-6
+var_init : 1.e-9
 
 # dataset
 

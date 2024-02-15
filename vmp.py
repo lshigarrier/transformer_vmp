@@ -3,91 +3,91 @@ import torch
 import torch.nn as nn
 
 
-def clamp_nan(x, tol):
-    return torch.clamp(torch.nan_to_num(x, nan=tol, posinf=1/tol, neginf=-1/tol), min=tol, max=1/tol)
-
-
-def no_nan(x, tol):
-    return torch.nan_to_num(x, nan=tol, posinf=1/tol, neginf=-1/tol)
-
-
 def loss_vmp(logit, var_logit, target, model, param):
     # Compute the regularization term
     kl = 0
+    sig_sum = 0
+    sig_tot = 0
     for name, p in model.named_parameters():
         if p.requires_grad:
             if 'rho' in name:
-                sig = nn.functional.softplus(p)
-                kl += no_nan(sig - torch.log(sig + param['tol']), param['tol']).sum()
+                sig = nn.functional.softplus(p) + param['tol']
+                sig_sum += sig.sum().item()
+                sig_tot += sig.numel()
+                kl += (sig - torch.log(sig)).sum()
             else:
-                kl += no_nan(p**2, param['tol']).sum()
+                kl += (p**2).sum()
 
     # Compute the expected negative log-likelihood
-    prob, var_prob = softmax_vmp(logit, var_logit, tol=param['tol'])
-    prob = no_nan(prob, param['tol']).clamp(min=param['tol'], max=1-param['tol'])
+    prob, var_prob = softmax_vmp(logit, var_logit)
     target = nn.functional.one_hot(target, num_classes=param['output_dim'])
-    var_prob = clamp_nan(var_prob, param['tol'])
-    inv_var = torch.div(input=1, other=var_prob + param['tol'])
-    nll = no_nan((torch.log(var_prob + param['tol']) + (target - prob)**2*inv_var), param['tol']).sum(dim=-1)
-    nll = nll.sum()/prob.shape[0]
+    var_prob += param['tol']
+    inv_var = torch.div(input=1, other=var_prob)
+    mse = (target - prob)**2
+    batch_size = prob.shape[0]
+    log_var = torch.log(var_prob).sum()/2/batch_size
+    mse_inv = (mse*inv_var).sum()/2/batch_size
 
-    return nll, kl
+    return log_var + mse_inv, kl, var_prob, (sig_sum/sig_tot, log_var.item(), mse_inv.item())
 
 
-def quadratic_vmp(x, var_x, y, var_y, tol=1e-3):
-    return torch.matmul(x, y), clamp_nan(torch.matmul(var_x + x**2, var_y) + torch.matmul(var_x, y**2), tol)
+def quadratic_vmp(x, var_x, y, var_y):
+    return torch.matmul(x, y), torch.matmul(var_x + x**2, var_y) + torch.matmul(var_x, y**2)
 
 
 def quadratic_jac(x, jac_x, y, jac_y):
     return torch.matmul(jac_x, y) + torch.matmul(x, jac_y)
 
 
-def relu_vmp(x, var_x, return_jac=False, tol=1e-3):
+def relu_vmp(x, var_x, return_jac=False):
     x = nn.functional.relu(x)
     der = torch.logical_not(torch.eq(x, other=0)).long()
+    der = der.detach()
     if return_jac:
-        return x, clamp_nan(var_x*der, tol), der
+        return x, var_x*der, der
     else:
-        return x, clamp_nan(var_x*der, tol)
+        return x, var_x*der
 
 
-def sigmoid_vmp(x, var_x, tol=1e-3):
+def sigmoid_vmp(x, var_x):
     x = torch.sigmoid(x)
     der = x*(1 - x)
-    return x, clamp_nan(var_x*der**2, tol)
+    der = der.detach()
+    return x, var_x*der**2
 
 
-def softmax_vmp(x, var_x, return_jac=False, tol=1e-3):
+def softmax_vmp(x, var_x, return_jac=False):
     """
     To avoid an out-of-memory error, we must neglect the off-diagonal terms of the Jacobian
     """
     prob = nn.functional.softmax(x, dim=-1)
     der = prob*(1 - prob)
+    der = der.detach()
     if return_jac:
-        return prob, clamp_nan(var_x*der**2, tol), der
+        return prob, var_x*der**2, der
     else:
-        return prob, clamp_nan(var_x*der**2, tol)
+        return prob, var_x*der**2
 
 
-def residual_vmp(x, var_x, f, var_f=None, jac=None, mode='independence', tol=1e-3):
+def residual_vmp(x, var_x, f, var_f=None, jac=None, mode='independence'):
     if mode == 'taylor':
         if (var_f is None) or (jac is None):
             raise RuntimeError
-        return x + f, clamp_nan(torch.maximum(var_x + var_f + 2*(jac*(var_x + x**2) - x*f), torch.tensor(0)), tol)
+        return x + f, torch.maximum(var_x + var_f + 2*(jac*(var_x + x**2) - x*f), torch.tensor(0))
     elif mode == 'independence':
         if var_f is None:
             raise RuntimeError
-        return x + f, clamp_nan(var_x + var_f, tol)
+        return x + f, var_x + var_f
     elif mode == 'identity':
-        return x + f, clamp_nan(var_x, tol)
+        return x + f, var_x
     else:
         raise NotImplementedError
 
 
 class LinearVMP(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, var_init=1e-8, tol=1e-3):
+    def __init__(self, in_features, out_features, bias=True, var_init=1e-12):
         super().__init__()
-        self.size_in, self.size_out, self.biased, self.tol = in_features, out_features, bias, tol
+        self.size_in, self.size_out, self.biased = in_features, out_features, bias
         weight = torch.zeros(out_features, in_features)
         rho = torch.zeros(out_features, in_features)
         self.weight = nn.Parameter(weight)
@@ -111,17 +111,16 @@ class LinearVMP(nn.Module):
         mean = torch.matmul(self.weight, mu)
         var = torch.matmul(w_sig + self.weight**2, sigma) + torch.matmul(w_sig, mu**2)
         if self.biased:
-            return (mean.transpose(-2, -1) + self.bias,
-                    clamp_nan(var.transpose(-2, -1) + nn.functional.softplus(self.b_rho), self.tol))
+            return mean.transpose(-2, -1) + self.bias, var.transpose(-2, -1) + nn.functional.softplus(self.b_rho)
         else:
-            return mean.transpose(-2, -1), clamp_nan(var.transpose(-2, -1), self.tol)
+            return mean.transpose(-2, -1), var.transpose(-2, -1)
 
     def get_jac(self):
         return self.weight.transpose(-2, -1)
 
 
 class LayerNormVMP(nn.Module):
-    def __init__(self, normalized_shape, elementwise_affine=True, var_init=1e-8, tol=1e-3):
+    def __init__(self, normalized_shape, elementwise_affine=True, var_init=1e-12, tol=1e-12):
         super().__init__()
         self.normalized_shape = normalized_shape
         self.elementwise_affine = elementwise_affine
@@ -141,11 +140,9 @@ class LayerNormVMP(nn.Module):
 
     def forward(self, mu, sigma):
         mean = mu.mean(dim=-1, keepdim=True)
-        var = mu.var(dim=-1, keepdim=True)
+        var = mu.var(dim=-1, keepdim=True) + self.tol
         if self.elementwise_affine:
-            return ((mu - mean)/torch.sqrt(var + self.tol)*self.weight + self.bias,
-                    clamp_nan(sigma/(var + self.tol)*nn.functional.softplus(self.rho) +
-                              nn.functional.softplus(self.b_rho), self.tol))
+            return ((mu - mean)/torch.sqrt(var)*self.weight + self.bias,
+                    sigma/var*nn.functional.softplus(self.rho) + nn.functional.softplus(self.b_rho))
         else:
-            return ((mu - mean)/torch.sqrt(var + self.tol),
-                    clamp_nan(sigma/(var + self.tol), self.tol))
+            return (mu - mean)/torch.sqrt(var), sigma/var

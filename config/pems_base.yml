@@ -31,9 +31,9 @@ residual : ~
 epochs : 50
 batch_size : 32
 optimizer : adam
-learning_rate : 1.e-3
+learning_rate : 1.e-1
 # End factor to multiply the learning rate at the last epoch
-end_factor : 1.e-1
+end_factor : 1.e-3
 l2_reg : 0.
 # l2 regularization hyperparameter in ELBO
 kl_factor : ~
@@ -41,10 +41,7 @@ kl_factor : ~
 clip : 10
 # nb of workers for dataloaders
 workers : 4
-# tolerance (0 < tol < 1) for:
-# - removing nan -> tol
-# - removing posinf -> 1/tol, and neginf -> -1/tol
-# - clamping positive numbers between tol and 1/tol
+# tolerance in (0, 1) for avoiding nan in log(), 1/, sqrt()
 tol : 1.e-6
 # initialization factor for variance
 var_init : ~

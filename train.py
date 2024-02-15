@@ -1,5 +1,4 @@
 import time
-import math
 import torch
 import wandb
 import torch.nn as nn
@@ -12,12 +11,24 @@ def compute_metrics(param, idx, trainloader, model, target, logit):
     # Compute average gradient norm
     grad_sum = 0
     grad_tot = 0
+    grad_var_sum = 0
+    grad_var_tot = 0
+    grad_mu_sum = 0
+    grad_mu_tot = 0
     for name, p in model.named_parameters():
         if p.requires_grad:
             grad_tot += 1
             grad_sum += p.grad.norm().item()
+            if 'rho' in name:
+                grad_var_tot += 1
+                grad_var_sum += p.grad.norm().item()
+            else:
+                grad_mu_tot += 1
+                grad_mu_sum += p.grad.norm().item()
+
     if param['wandb']:
-        wandb.log({'average_gradient_norm': grad_sum/grad_tot})
+        wandb.log({'average_gradient_norm': grad_sum/grad_tot,
+                   'variance_gradient_norm': grad_var_sum/grad_var_tot, 'mu_gradient_norm': grad_mu_sum/grad_mu_tot})
 
     # Compute training set accuracy
     if param['dataset'] == 'pems':
@@ -31,7 +42,7 @@ def compute_metrics(param, idx, trainloader, model, target, logit):
         if param['wandb']:
             onehot = nn.functional.one_hot(target, num_classes=param['output_dim'])
             prob = nn.functional.softmax(logit, dim=-1)
-            wandb.log({'train_RMSE': math.sqrt(((onehot - prob)**2).mean().item())})
+            wandb.log({'train_MSE': ((onehot - prob)**2).mean().item()})
     else:
         raise NotImplementedError
 
@@ -69,11 +80,12 @@ def validate(param, device, testloader, model):
                     raise NotImplementedError
 
                 # Compute the ELBO
-                nll, kl = loss_vmp(logit, var_logit, y, model, param)
-                loss = nll + param['kl_factor'] * kl
+                nll, kl, var_prob, _ = loss_vmp(logit, var_logit, y, model, param)
+                loss = nll + param['kl_factor']*kl
 
                 if param['wandb']:
-                    wandb.log({'test_nll': nll.item(), 'test_kl': kl.item(), 'test_var': var_logit.mean().item()})
+                    wandb.log({'test_nll': nll.item(), 'test_kl': kl.item(),
+                               'test_var': var_prob.mean().item()})
 
             else:
                 # Forward pass
@@ -96,7 +108,7 @@ def validate(param, device, testloader, model):
                 if param['wandb']:
                     onehot = nn.functional.one_hot(y, num_classes=param['output_dim'])
                     prob = nn.functional.softmax(logit, dim=-1)
-                    wandb.log({'test_RMSE': math.sqrt(((onehot - prob)**2).mean().item())})
+                    wandb.log({'test_MSE': ((onehot - prob)**2).mean().item()})
             else:
                 raise NotImplementedError
 
@@ -129,11 +141,12 @@ def train(param, device, trainloader, testloader, model, optimizer):
                 raise NotImplementedError
 
             # Compute the ELBO
-            nll, kl = loss_vmp(logit, var_logit, y, model, param)
+            nll, kl, var_prob, (var_par, log_var, mse_inv) = loss_vmp(logit, var_logit, y, model, param)
             loss = nll + param['kl_factor']*kl
 
             if param['wandb']:
-                wandb.log({'train_nll': nll.item(), 'train_kl': kl.item(), 'train_var': var_logit.mean().item()})
+                wandb.log({'train_nll': nll.item(), 'train_kl': kl.item(), 'train_var': var_prob.mean().item(),
+                           'variance_param': var_par, 'log_var': log_var, 'mse_inv': mse_inv})
 
         else:
             # Forward pass
@@ -198,8 +211,8 @@ def training(param, device, trainloader, testloader, model, optimizer, scheduler
     print('Saving final model')
     torch.save(model.state_dict(), f=f'models/{param["name"]}/final.pt')
     print(f'Best epoch: {best_epoch}')
-    print(f'Best accuracy: {best_acc:.2g}')
-    print(f'Training time (s): {time.time() - tac}')
+    print(f'Best accuracy: {best_acc:.2f}%')
+    print(f'Training time (s): {time.time() - tac:.0f}')
 
 
 def one_run(param):

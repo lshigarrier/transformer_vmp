@@ -3,5 +3,5 @@
 archives/
 data/
 models/
-outputs/images/
+outputs/
 wandb/
