@@ -12,7 +12,7 @@ class AttentionHeadVMP(nn.Module):
     d: input dimension
     mode: residual connection mode for variance computation : identity, independence, taylor
     """
-    def __init__(self, h, d, device, mode='identity', var_init=1e-12):
+    def __init__(self, h, d, device, mode='identity', var_init=(1e-3, 1e-2)):
         super().__init__()
         if d % h != 0:
             raise RuntimeError
@@ -52,7 +52,7 @@ class FinalHeadVMP(nn.Module):
     """
     Last Multi Head of the encoder
     """
-    def __init__(self, h, d, var_init=1e-12):
+    def __init__(self, h, d, var_init=(1e-3, 1e-2)):
         super().__init__()
         if d % h != 0:
             raise RuntimeError
@@ -74,7 +74,7 @@ class DecoderHeadVMP(nn.Module):
     """
     Multi Head Attention using key and value from the encoder
     """
-    def __init__(self, h, d, device, mode='identity', var_init=1e-12):
+    def __init__(self, h, d, device, mode='identity', var_init=(1e-3, 1e-2)):
         super().__init__()
         if d % h != 0:
             raise RuntimeError

@@ -1,7 +1,7 @@
-name : pems_vmp1
+name : pems_vmp2
 model : deterministic2.pt
 # load existing weights from ./models/[name]/[model]
-load : False
+load : True
 # Training or inference
 train : True
 seed : 42
@@ -28,23 +28,23 @@ residual : independence
 
 # training
 
-epochs : 100
+epochs : 200
 batch_size : 32
-optimizer : adam
+optimizer : sgd
 learning_rate : 1.e-3
 # End factor to multiply the learning rate at the last epoch
 end_factor : 1.e-1
 l2_reg : 0.
 # l2 regularization hyperparameter in ELBO
-kl_factor : 1.e-9
+kl_factor : 1.e-7
 # gradient clipping
 clip : 10
 # nb of workers for dataloaders
 workers : 4
 # tolerance in (0, 1) for avoiding nan in log(), 1/, sqrt()
 tol : 1.e-9
-# initialization factor for variance
-var_init : 1.e-9
+# initialization bounds for variance 
+var_init : [1.e-3, 1.e-2]
 
 # dataset
 

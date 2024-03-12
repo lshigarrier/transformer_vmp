@@ -28,7 +28,8 @@ def compute_metrics(param, idx, trainloader, model, target, logit):
 
     if param['wandb']:
         wandb.log({'average_gradient_norm': grad_sum/grad_tot,
-                   'variance_gradient_norm': grad_var_sum/grad_var_tot, 'mu_gradient_norm': grad_mu_sum/grad_mu_tot})
+                   'variance_gradient_norm': grad_var_sum/max(grad_var_tot, 1),
+                   'mu_gradient_norm': grad_mu_sum/max(grad_mu_tot, 1)})
 
     # Compute training set accuracy
     if param['dataset'] == 'pems':

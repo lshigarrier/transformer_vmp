@@ -85,7 +85,7 @@ def residual_vmp(x, var_x, f, var_f=None, jac=None, mode='independence'):
 
 
 class LinearVMP(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, var_init=1e-12):
+    def __init__(self, in_features, out_features, bias=True, var_init=(1e-3, 1e-2)):
         super().__init__()
         self.size_in, self.size_out, self.biased = in_features, out_features, bias
         weight = torch.zeros(out_features, in_features)
@@ -93,8 +93,10 @@ class LinearVMP(nn.Module):
         self.weight = nn.Parameter(weight)
         self.rho = nn.Parameter(rho)
         bound = math.sqrt(6/(in_features + out_features))
+        # Inversion of softplus to get the bounds of rho
+        rho1, rho2 = math.log(math.exp(var_init[0]) - 1), math.log(math.exp(var_init[1]) - 1)
         nn.init.uniform_(self.weight, -bound, bound)
-        nn.init.uniform_(self.rho, -var_init*bound, var_init*bound)
+        nn.init.uniform_(self.rho, rho1, rho2)
         if bias:
             b = torch.zeros(out_features)
             b_rho = torch.zeros(out_features)
@@ -102,7 +104,7 @@ class LinearVMP(nn.Module):
             self.b_rho = nn.Parameter(b_rho)
             bound = 1/math.sqrt(in_features)
             nn.init.uniform_(self.bias, -bound, bound)
-            nn.init.uniform_(self.b_rho, -var_init*bound, var_init*bound)
+            nn.init.uniform_(self.b_rho, rho1, rho2)
 
     def forward(self, mu, sigma):
         w_sig = nn.functional.softplus(self.rho)
@@ -120,7 +122,7 @@ class LinearVMP(nn.Module):
 
 
 class LayerNormVMP(nn.Module):
-    def __init__(self, normalized_shape, elementwise_affine=True, var_init=1e-12, tol=1e-12):
+    def __init__(self, normalized_shape, elementwise_affine=True, var_init=(1e-3, 1e-2), tol=1e-9):
         super().__init__()
         self.normalized_shape = normalized_shape
         self.elementwise_affine = elementwise_affine
@@ -134,9 +136,9 @@ class LayerNormVMP(nn.Module):
             self.rho = nn.Parameter(rho)
             self.bias = nn.Parameter(b)
             self.b_rho = nn.Parameter(b_rho)
-            bound = var_init / math.sqrt(normalized_shape)
-            nn.init.uniform_(self.rho, -bound, bound)
-            nn.init.uniform_(self.b_rho, -bound, bound)
+            rho1, rho2 = math.log(math.exp(var_init[0]) - 1), math.log(math.exp(var_init[1]) - 1)
+            nn.init.uniform_(self.rho, rho1, rho2)
+            nn.init.uniform_(self.b_rho, rho1, rho2)
 
     def forward(self, mu, sigma):
         mean = mu.mean(dim=-1, keepdim=True)
