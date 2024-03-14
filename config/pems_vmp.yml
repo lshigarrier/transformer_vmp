@@ -2,6 +2,8 @@ name : pems_vmp2
 model : deterministic2.pt
 # load existing weights from ./models/[name]/[model]
 load : True
+# partial load (e.g., to initialize deterministic weights)
+partial : True
 # Training or inference
 train : True
 seed : 42

@@ -75,7 +75,7 @@ def initialize(param):
     if param['load']:
         print('Load parameters')
         statedict = torch.load(f=f'models/{param["name"]}/{param["model"]}', map_location='cpu')
-        if param['vmp']:
+        if param['partial']:
             load_partial_state_dict(model, statedict)
         else:
             model.load_state_dict(statedict)

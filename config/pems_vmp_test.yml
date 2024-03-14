@@ -1,15 +1,16 @@
-name : pems_base3
-model : weights.pt
+name : pems_vmp2
+model : deterministic2_ep21.pt
+# bayesian2_80_ep52.pt
 # load existing weights from ./models/[name]/[model]
-load : False
+load : True
 # partial load (e.g., to initialize deterministic weights)
 partial : False
 # Training or inference
-train : True
+train : False
 seed : 42
 gpu_number : ~
 # Use wandb
-wandb : True
+wandb : False
 
 # model
 
@@ -26,27 +27,32 @@ clas : [963,]
 # use uncertainty quantification
 vmp : False
 # residual connection mode for variance computation : identity, independence, taylor
-residual : ~
+residual : independence
 
 # training
 
-epochs : 300
+epochs : ~
 batch_size : 32
-optimizer : adam
-learning_rate : 1.e-2
+optimizer : sgd
+learning_rate : 1.e-3
 # End factor to multiply the learning rate at the last epoch
-end_factor : 1.e-2
+end_factor : 1.e-1
 l2_reg : 0.
 # l2 regularization hyperparameter in ELBO
-kl_factor : ~
+kl_factor : 1.e-7
 # gradient clipping
 clip : 10
 # nb of workers for dataloaders
 workers : 4
 # tolerance in (0, 1) for avoiding nan in log(), 1/, sqrt()
-tol : ~
-# initialization factor for variance
-var_init : ~
+tol : 1.e-9
+# initialization bounds for variance 
+var_init : [1.e-3, 1.e-2]
+
+# testing
+
+noise : gaussian
+snr   : [-50, 21, 2.5]
 
 # dataset
 
