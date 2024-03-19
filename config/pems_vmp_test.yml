@@ -1,6 +1,6 @@
 name : pems_vmp2
-model : deterministic2_ep21.pt
-# bayesian2_80_ep52.pt
+model : bayesian2_80_ep52.pt
+# bayesian2_80_ep52.pt deterministic2_ep21.pt
 # load existing weights from ./models/[name]/[model]
 load : True
 # partial load (e.g., to initialize deterministic weights)
@@ -25,7 +25,7 @@ emb : ~
 # classifiers dimensions, we must have emb[-1] = clas[0]
 clas : [963,]
 # use uncertainty quantification
-vmp : False
+vmp : True
 # residual connection mode for variance computation : identity, independence, taylor
 residual : independence
 
@@ -51,8 +51,15 @@ var_init : [1.e-3, 1.e-2]
 
 # testing
 
+# clean or gaussian
 noise : gaussian
-snr   : [-50, 21, 2.5]
+# start (included), stop (excluded), step
+level   : [0.01, 1, 0.3]
+# if true: level is snr. If false: level is noise std.
+snr : False
+# print a few predictions along their variance
+sample : True
+
 
 # dataset
 

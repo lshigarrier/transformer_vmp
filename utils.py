@@ -35,6 +35,7 @@ def initialize(param):
     # Print param
     for key in param:
         print(f'{key}: {param[key]}')
+    print('\n')
 
     # Detect anomaly in autograd
     torch.autograd.set_detect_anomaly(True)
@@ -86,9 +87,10 @@ def initialize(param):
     model.to(device)
 
     # Print parameters names
-    print("Model parameters:")
+    print('Model parameters:')
     for name, par in model.named_parameters():
         print(name)
+    print('\n')
 
     # Create data loaders
     trainset = TensorDataset(x_train, y_train)

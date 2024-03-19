@@ -183,7 +183,7 @@ def train(param, device, trainloader, testloader, model, optimizer):
 
 
 def training(param, device, trainloader, testloader, model, optimizer, scheduler):
-    print('Start training')
+    print('Start training\n')
     tac = time.time()
     best_acc = 0
     best_epoch = 0
