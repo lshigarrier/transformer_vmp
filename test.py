@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from utils import load_yaml, initialize
+from vmp import softmax_vmp
 
 
 def test(param, device, testloader, model, lvl):
@@ -34,6 +35,7 @@ def test(param, device, testloader, model, lvl):
                 # Forward pass
                 if param['dataset'] == 'pems':
                     logit, var_logit = model(x)
+                    _, var_soft = softmax_vmp(logit, var_logit)
                 else:
                     raise NotImplementedError
 
@@ -50,17 +52,18 @@ def test(param, device, testloader, model, lvl):
                 correct += torch.eq(pred, y).int().sum().item()
                 total += y.numel()
                 if param['vmp']:
-                    variance += torch.take_along_dim(var_logit, pred.unsqueeze(-1), dim=1).sum().item()
+                    # variance += torch.take_along_dim(var_logit, pred.unsqueeze(-1), dim=1).sum().item()
+                    variance += torch.take_along_dim(var_soft, pred.unsqueeze(-1), dim=1).sum().item()
             else:
                 raise NotImplementedError
 
         # Compute accuracy
         acc = 100*correct/total
-        mean_snr = 10*np.log10(snr_sum/total)
         if param['snr']:
             print(f'Noise: {param["noise"]}, SNR: {lvl:.1f} dB, std: {std_sum/total:.3g}, '
                   f'Test Accuracy: {acc:.2f}%, Predictive Variance: {variance/total:.3g}')
         else:
+            mean_snr = 10 * np.log10(snr_sum / total)
             print(f'Noise: {param["noise"]}, SNR: {mean_snr:.3g} dB, std: {lvl:.3g}, '
                   f'Test Accuracy: {acc:.2f}%, Predictive Variance: {variance/total:.3g}')
 
@@ -75,7 +78,8 @@ def test(param, device, testloader, model, lvl):
                 print(f'Predicted class: {pred[i]}')
                 print(f'Softmax probabilities:\n{torch.nn.functional.softmax(logit[i], dim=0)}')
                 if param['vmp']:
-                    print(f'Predictive variances:\n{var_logit[i]}')
+                    # print(f'Predictive variances:\n{var_logit[i]}')
+                    print(f'Predictive variances:\n{var_soft[i]}')
                 print('\n')
 
 

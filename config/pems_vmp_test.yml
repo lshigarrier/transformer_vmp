@@ -54,9 +54,10 @@ var_init : [1.e-3, 1.e-2]
 # clean or gaussian
 noise : gaussian
 # start (included), stop (excluded), step
-level   : [0.01, 1, 0.3]
+level   : [-50, 21, 10]
+# [0.01, 5.1, 0.5]
 # if true: level is snr. If false: level is noise std.
-snr : False
+snr : True
 # print a few predictions along their variance
 sample : True
 
