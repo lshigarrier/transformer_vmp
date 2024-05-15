@@ -93,12 +93,14 @@ def one_test_run(param):
         test(param, device, testloader, model, lvl)
 
 
-def test_fct():
-    t = torch.tensor([[10, 20, 30, 40], [50, 60, 70, 80], [90, 100, 110, 120]])
-    idx = torch.tensor([2, 3, 0])
-    res = torch.take_along_dim(t, idx.unsqueeze(-1), dim=1)
-    print(res)
-    print(res.sum().item())
+def test_fct(lvl, batch):
+    t = torch.rand(batch, 3, 3)
+    noise = lvl*torch.randn(*t.shape)
+    snr1 = ((t ** 2).sum(dim=(1, 2)) / (noise ** 2).sum(dim=(1, 2))).sum().item()
+    snr1_db = 10 * np.log10(snr1 / batch)
+    snr2_db = (10 * np.log10((t ** 2).sum(dim=(1, 2)) / (noise ** 2).sum(dim=(1, 2)))).mean().item()
+    print(f'snr1_db={snr1_db}')
+    print(f'snr2_db={snr2_db}')
 
 
 def main():
@@ -107,5 +109,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # test_fct()
+    # for std in [0.01, 0.05, 0.1, 0.2]:
+    #     print(f'std={std}')
+    #     test_fct(std, 100)
     main()
